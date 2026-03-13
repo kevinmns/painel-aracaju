@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Técnico Aracaju</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Estilos personalizados para a barra de scroll */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+        
+        /* Estilos para o conteúdo gerado pela IA */
+        #ai-results h3 { font-size: 1.125rem; font-weight: 600; color: #475569; margin-top: 1.25rem; margin-bottom: 0.5rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.25rem; }
+        #ai-results ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
+        #ai-results li { margin-bottom: 0.25rem; }
+        #ai-results p { margin-bottom: 0.75rem; line-height: 1.5; }
+        #ai-results strong { color: #1e293b; font-weight: 600; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 font-sans p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- Cabeçalho -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-6 rounded-2xl shadow-sm">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fab fa-trello text-blue-500"></i> Painel Técnico Aracaju
+                </h1>
+                <p class="text-sm text-slate-500 mt-1 flex items-center gap-2">
+                    Dados em tempo real <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                    <span id="sync-info" class="text-slate-400 font-normal">| Sincronizando em 30s</span>
+                </p>
+            </div>
+            <div id="status-badge" class="mt-4 md:mt-0 px-4 py-2 bg-yellow-100 text-yellow-700 rounded-full text-sm font-medium flex items-center gap-2">
+                <i class="fas fa-circle-notch fa-spin"></i> A carregar dados...
+            </div>
+        </header>
+
+        <!-- Métricas Principais (Cards) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="metrics-container">
+            <!-- Os cartões serão injetados aqui via JS -->
+        </div>
+
+        <!-- Gráficos -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" style="display: none;" id="charts-container">
+            <!-- Gráfico de Etiquetas -->
+            <div class="glass-card rounded-2xl p-6">
+                <h2 class="text-lg font-semibold mb-4 text-slate-700 text-center">Distribuição por Etiquetas</h2>
+                <div class="relative h-64 w-full flex justify-center">
+                    <canvas id="labelsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Gráfico de Status -->
+            <div class="glass-card rounded-2xl p-6">
+                <h2 class="text-lg font-semibold mb-4 text-slate-700 text-center">Clientes por Status</h2>
+                <div class="relative h-64 w-full">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Secção: Alertas Críticos e Pendências -->
+        <div class="glass-card rounded-2xl p-6 mt-6" style="display: none;" id="alertas-container">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-semibold text-slate-700 flex items-center gap-2">
+                    <i class="fas fa-exclamation-circle text-red-500"></i> Alertas: Críticos e Pendências
+                </h2>
+                <span id="last-update" class="text-[10px] text-slate-400 uppercase tracking-widest">Atualizado agora</span>
+            </div>
+            <div id="alertas-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <!-- Cards injetados aqui via JS -->
+            </div>
+        </div>
+
+        <!-- Secção de Inteligência Artificial -->
+        <div class="glass-card rounded-2xl p-6 mt-6">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-4">
+                <h2 class="text-lg font-semibold text-slate-700 flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    Consultor de Customer Success IA
+                </h2>
+                <button id="btn-ai-insights" onclick="generateAIInsights()" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-sm text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 transform hover:scale-105 active:scale-95">
+                     ✨ Gerar Análise com IA
+                </button>
+            </div>
+            
+            <div id="ai-loading" class="hidden text-slate-500 flex flex-col items-center justify-center py-8">
+                <i class="fas fa-circle-notch fa-spin text-purple-500 text-3xl mb-3"></i> 
+                <p class="font-medium text-purple-700">A analisar a base de dados...</p>
+                <p class="text-xs mt-1 text-slate-400">O Gemini está a analisar gargalos e a formular recomendações.</p>
+            </div>
+            
+            <div id="ai-results" class="text-sm text-slate-600 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                <div class="flex flex-col items-center justify-center py-6 text-slate-400 text-center">
+                    <i class="fas fa-robot text-4xl mb-3 opacity-20"></i>
+                    <p class="italic max-w-md">Clique no botão acima para obter um resumo executivo automático e conselhos estratégicos sobre o estado atual dos seus clientes.</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Configurações da API do Trello
+        const TRELLO_API_URL = "https://api.trello.com/1/boards/69b355664f6d287cf3bfeeea/cards?key=6d4c4e7fdd847611f3869812d3270172&token=ATTA6af9f4b90c7fe22b76d4d5957fb9f72efc93c57a4fe1df117de5551230534988498BD102";
+        const REFRESH_INTERVAL_SEC = 30;
+
+        // Estado Global
+        let labelsChartInstance = null;
+        let listsChartInstance = null;
+        let listMap = {}; 
+        let countdown = REFRESH_INTERVAL_SEC;
+
+        async function initDashboard() {
+            const statusBadge = document.getElementById('status-badge');
+            statusBadge.className = "mt-4 md:mt-0 px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm font-medium flex items-center gap-2";
+            statusBadge.innerHTML = '<i class="fas fa-sync fa-spin"></i> Sincronizando...';
+
+            try {
+                const urlObj = new URL(TRELLO_API_URL);
+                const key = urlObj.searchParams.get('key');
+                const token = urlObj.searchParams.get('token');
+                const boardId = urlObj.pathname.split('/')[3];
+                const listsUrl = `https://api.trello.com/1/boards/${boardId}/lists?key=${key}&token=${token}`;
+
+                const [cardsResponse, listsResponse] = await Promise.all([
+                    fetch(TRELLO_API_URL),
+                    fetch(listsUrl)
+                ]);
+                
+                if (!cardsResponse.ok) throw new Error("Erro ao aceder à API do Trello");
+
+                const cards = await cardsResponse.json();
+                
+                if (listsResponse.ok) {
+                    const lists = await listsResponse.json();
+                    lists.forEach(l => listMap[l.id] = l.name);
+                }
+
+                processData(cards);
+                
+                statusBadge.className = "mt-4 md:mt-0 px-4 py-2 bg-green-100 text-green-700 rounded-full text-sm font-medium flex items-center gap-2";
+                statusBadge.innerHTML = '<i class="fas fa-check-circle"></i> Atualizado';
+
+                document.getElementById('charts-container').style.display = 'grid';
+                document.getElementById('alertas-container').style.display = 'block';
+                document.getElementById('last-update').textContent = `Atualizado às ${new Date().toLocaleTimeString('pt-PT', {hour: '2-digit', minute:'2-digit', second:'2-digit'})}`;
+
+                countdown = REFRESH_INTERVAL_SEC;
+
+            } catch (error) {
+                console.error("Erro:", error);
+                statusBadge.className = "mt-4 md:mt-0 px-4 py-2 bg-red-100 text-red-700 rounded-full text-sm font-medium flex items-center gap-2";
+                statusBadge.innerHTML = '<i class="fas fa-times-circle"></i> Erro na Sincronização';
+            }
+        }
+
+        function startSyncTimer() {
+            const syncInfo = document.getElementById('sync-info');
+            setInterval(() => {
+                countdown--;
+                if (countdown <= 0) {
+                    initDashboard();
+                    countdown = REFRESH_INTERVAL_SEC;
+                }
+                syncInfo.textContent = `| Sincronizando em ${countdown}s`;
+            }, 1000);
+        }
+
+        function processData(cards) {
+            const totalCards = cards.length;
+            let countImplantacao = 0, countPendencias = 0, countAcompanhamento = 0;
+            let countSemUso = 0, countCriticos = 0, countConcluidos = 0;
+            const listaAlertas = [];
+
+            cards.forEach(c => {
+                const listName = (listMap[c.idList] || "").toLowerCase();
+                if (listName.includes("implantação") || listName.includes("implantacao")) {
+                    countImplantacao++;
+                } else if (listName.includes("pendência") || listName.includes("pendencia")) {
+                    countPendencias++;
+                    listaAlertas.push({ data: c, tipo: 'pendencia' });
+                } else if (listName.includes("acompanhamento")) {
+                    countAcompanhamento++;
+                } else if (listName.includes("uso")) {
+                    countSemUso++;
+                } else if (listName.includes("crítico") || listName.includes("critico") || listName.includes("cancelamento")) {
+                    countCriticos++;
+                    listaAlertas.push({ data: c, tipo: 'critico' });
+                } else if (listName.includes("concluído") || listName.includes("concluido")) {
+                    countConcluidos++;
+                }
+            });
+
+            renderMetrics([
+                { title: "Total de Clientes", value: totalCards, icon: "fa-users", color: "blue" },
+                { title: "Em Implantação", value: countImplantacao, icon: "fa-rocket", color: "purple" },
+                { title: "Com Pendências", value: countPendencias, icon: "fa-clock", color: "orange" },
+                { title: "Em Acompanhamento", value: countAcompanhamento, icon: "fa-eye", color: "sky" },
+                { title: "Sem Uso", value: countSemUso, icon: "fa-bed", color: "gray" },
+                { title: "Críticos (Risco)", value: countCriticos, icon: "fa-exclamation-triangle", color: "red" },
+                { title: "Concluídos", value: countConcluidos, icon: "fa-check-circle", color: "green" }
+            ]);
+
+            const statusCounts = {
+                "Em Implantação": countImplantacao, "Com Pendências": countPendencias,
+                "Em Acompanhamento": countAcompanhamento, "Sem Uso": countSemUso,
+                "Críticos": countCriticos, "Concluídos": countConcluidos
+            };
+
+            const labelCounts = {}, labelColors = {};
+            cards.forEach(c => {
+                if (c.labels && c.labels.length > 0) {
+                    c.labels.forEach(l => {
+                        const name = l.name || (l.color ? `Cor: ${l.color}` : 'Desconhecido');
+                        labelCounts[name] = (labelCounts[name] || 0) + 1;
+                        const baseColor = l.color ? l.color.split('_')[0] : null;
+                        const colorMap = {
+                            green: '#22c55e', yellow: '#eab308', orange: '#f97316', 
+                            red: '#ef4444', purple: '#a855f7', blue: '#3b82f6', 
+                            sky: '#0ea5e9', lime: '#84cc16', pink: '#ec4899', black: '#1e293b'
+                        };
+                        const fallbackPalette = ['#6366f1', '#14b8a6', '#f43f5e', '#8b5cf6', '#0ea5e9', '#f59e0b', '#10b981'];
+                        if (baseColor && colorMap[baseColor]) {
+                            labelColors[name] = colorMap[baseColor];
+                        } else if (!labelColors[name]) {
+                            const colorIndex = Object.keys(labelColors).length % fallbackPalette.length;
+                            labelColors[name] = fallbackPalette[colorIndex];
+                        }
+                    });
+                } else {
+                    labelCounts['Sem Etiqueta'] = (labelCounts['Sem Etiqueta'] || 0) + 1;
+                    labelColors['Sem Etiqueta'] = '#cbd5e1';
+                }
+            });
+
+            renderCharts(labelCounts, labelColors, statusCounts);
+            renderAlertas(listaAlertas);
+            window.dashboardData = { statusCounts, labelCounts };
+        }
+
+        function renderAlertas(lista) {
+            const container = document.getElementById('alertas-list');
+            container.innerHTML = '';
+            if (lista.length === 0) {
+                container.innerHTML = `<div class="col-span-full text-center text-slate-500 py-6 bg-slate-50 rounded-xl border border-slate-100">Não há pendências ou casos críticos no momento.</div>`;
+                return;
+            }
+            lista.sort((a, b) => (a.tipo === 'critico' && b.tipo !== 'critico') ? -1 : 1);
+            lista.forEach(itemInfo => {
+                const item = itemInfo.data, tipo = itemInfo.tipo;
+                let badgeColor = "bg-orange-100 text-orange-700 border-orange-200";
+                let badgeText = "Pendência", icon = "fa-clock", borderColor = "border-slate-200 bg-white";
+                let detailText = item.due ? `Prazo: ${new Date(item.due).toLocaleDateString('pt-PT')}` : "Aguardando definição";
+                if (tipo === 'critico') {
+                    badgeColor = "bg-red-600 text-white border-red-700"; badgeText = "Risco de Churn";
+                    icon = "fa-fire"; borderColor = "border-red-300 bg-red-50/30"; detailText = "Prioridade Máxima";
+                }
+                container.innerHTML += `
+                    <div class="border ${borderColor} rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-1.5 h-full ${tipo === 'critico' ? 'bg-red-600' : 'bg-orange-400'}"></div>
+                        <div class="pl-2">
+                            <h3 class="font-semibold text-slate-800 line-clamp-2 mb-1">${item.name}</h3>
+                            <p class="text-[10px] text-slate-500 flex items-center gap-1 mb-3 uppercase font-bold tracking-wider">
+                                <i class="fas fa-info-circle"></i> ${detailText}
+                            </p>
+                        </div>
+                        <div class="flex justify-between items-center mt-1 pt-3 border-t ${tipo === 'critico' ? 'border-red-100' : 'border-orange-100'}">
+                            <span class="px-2 py-1 rounded-md text-[10px] font-bold border ${badgeColor} flex items-center gap-1 uppercase">
+                                <i class="fas ${icon}"></i> ${badgeText}
+                            </span>
+                            <a href="${item.url}" target="_blank" class="text-sky-500 hover:text-sky-600 text-sm font-medium">Trello <i class="fas fa-external-link-alt text-[10px]"></i></a>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function renderMetrics(metrics) {
+            const container = document.getElementById('metrics-container');
+            container.innerHTML = '';
+            metrics.forEach(m => {
+                const colors = { blue: "bg-blue-100 text-blue-600", orange: "bg-orange-100 text-orange-600", green: "bg-green-100 text-green-600", purple: "bg-purple-100 text-purple-600", red: "bg-red-100 text-red-700", sky: "bg-sky-100 text-sky-600", gray: "bg-slate-200 text-slate-700" };
+                container.innerHTML += `
+                    <div class="glass-card rounded-2xl p-6 flex items-center gap-4 transition-transform hover:scale-105">
+                        <div class="w-12 h-12 rounded-full ${colors[m.color]} flex items-center justify-center text-lg"><i class="fas ${m.icon}"></i></div>
+                        <div><p class="text-xs text-slate-500 font-bold uppercase tracking-wider">${m.title}</p><h3 class="text-2xl font-black text-slate-800">${m.value}</h3></div>
+                    </div>`;
+            });
+        }
+
+        function renderCharts(labelCounts, labelColors, statusCounts) {
+            const labelLabels = Object.keys(labelCounts), labelData = Object.values(labelCounts);
+            const ctxLabels = document.getElementById('labelsChart').getContext('2d');
+            if (labelsChartInstance) labelsChartInstance.destroy();
+            labelsChartInstance = new Chart(ctxLabels, {
+                type: 'doughnut',
+                data: { labels: labelLabels, datasets: [{ data: labelData, backgroundColor: labelLabels.map(l => labelColors[l]), borderWidth: 2, borderColor: '#ffffff' }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } } } }
+            });
+
+            const statusLabels = Object.keys(statusCounts), statusData = Object.values(statusCounts);
+            const ctxStatus = document.getElementById('statusChart').getContext('2d');
+            if (listsChartInstance) listsChartInstance.destroy();
+            listsChartInstance = new Chart(ctxStatus, {
+                type: 'bar',
+                data: { labels: statusLabels, datasets: [{ data: statusData, backgroundColor: ['#a855f7', '#f97316', '#0ea5e9', '#94a3b8', '#ef4444', '#22c55e'], borderRadius: 4 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } }, x: { grid: { display: false } } } }
+            });
+        }
+
+        // Funções para a API do Gemini
+        const apiKey = ""; // Chave fornecida pelo ambiente
+        async function fetchWithRetry(url, options, maxRetries = 5) {
+            let delay = 1000;
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    return await response.json();
+                } catch (error) {
+                    if (i === maxRetries - 1) throw error;
+                    await new Promise(res => setTimeout(res, delay));
+                    delay *= 2;
+                }
+            }
+        }
+
+        async function generateAIInsights() {
+            const btn = document.getElementById('btn-ai-insights'), loading = document.getElementById('ai-loading'), results = document.getElementById('ai-results');
+            if (!window.dashboardData) return;
+            
+            btn.disabled = true; 
+            loading.classList.remove('hidden'); 
+            results.innerHTML = '';
+
+            const prompt = `
+                És um Consultor Senior de Customer Success. Analisa os seguintes dados do Trello da equipa Aracaju:
+                - Clientes por Status: ${JSON.stringify(window.dashboardData.statusCounts)}
+                - Distribuição por Etiquetas: ${JSON.stringify(window.dashboardData.labelCounts)}
+
+                Gera um relatório executivo em formato HTML (usa h3 para títulos, p para texto e ul/li para listas) contendo:
+                1. Um diagnóstico geral da saúde da operação.
+                2. Uma análise detalhada dos riscos (focando nos críticos e pendências).
+                3. Três recomendações estratégicas imediatas para reduzir o churn e acelerar implantações.
+                
+                Responde diretamente com o código HTML, sem blocos de código Markdown.
+            `;
+
+            try {
+                const data = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+                
+                const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (aiText) {
+                    results.innerHTML = aiText.replace(/```html/gi, '').replace(/```/g, '').trim();
+                }
+            } catch (error) { 
+                results.innerHTML = `<p class="text-red-600 font-medium">Lamentamos, mas ocorreu um erro ao gerar a análise da IA. Por favor, tente novamente.</p>`; 
+            } finally { 
+                btn.disabled = false; 
+                loading.classList.add('hidden'); 
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initDashboard();
+            startSyncTimer();
+        });
+    </script>
+</body>
+</html>
